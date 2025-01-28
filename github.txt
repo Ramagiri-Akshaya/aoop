@@ -1,0 +1,102 @@
+1.from factory import Factory, Faker
+from your_project.models import Product
+
+class ProductFactory(Factory):
+    class Meta:
+        model = Product
+
+    id = Faker('uuid4')
+    name = Faker('word')
+    category = Faker('word')
+    price = Faker('pyfloat', positive=True, max_value=1000)
+    available = Faker('boolean')
+--------------------------------------------
+2.import unittest
+from your_project.models import Product
+
+class TestProductModel(unittest.TestCase):
+    def test_read_product(self):
+        product = Product(id=1, name="Widget", category="Tools", price=25.99, available=True)
+        self.assertEqual(product.name, "Widget")
+    
+    def test_update_product(self):
+        product = Product(id=1, name="Widget", category="Tools", price=25.99, available=True)
+        product.name = "Gadget"
+        self.assertEqual(product.name, "Gadget")
+
+    def test_delete_product(self):
+        product = Product(id=1, name="Widget", category="Tools", price=25.99, available=True)
+        product.delete()
+        self.assertIsNone(Product.query.get(1))
+    
+    # Add tests for Find by Name, Category, Availability
+-------------------------------------
+3.def test_list_all_products(client):
+    response = client.get('/products')
+    assert response.status_code == 200
+    assert len(response.json) > 0
+
+def test_search_by_name(client):
+    response = client.get('/products?name=Widget')
+    assert response.status_code == 200
+    assert response.json[0]['name'] == "Widget"
+
+def test_delete_product(client):
+    response = client.delete('/products/1')
+    assert response.status_code == 204
+---------------------------------------
+4.from flask import jsonify, request
+from your_project.models import Product
+
+@app.route('/products', methods=['GET'])
+def list_products():
+    name = request.args.get('name')
+    category = request.args.get('category')
+    availability = request.args.get('availability')
+
+    query = Product.query
+    if name:
+        query = query.filter_by(name=name)
+    if category:
+        query = query.filter_by(category=category)
+    if availability:
+        query = query.filter_by(available=bool(availability))
+
+    return jsonify([product.to_dict() for product in query.all()])
+------------------------------
+5.from behave import given
+from your_project.models import Product
+
+@given('the following products')
+def step_impl(context):
+    for row in context.table:
+        Product.create(
+            name=row['name'],
+            category=row['category'],
+            price=float(row['price']),
+            available=row['available'] == "True"
+        )
+-----------------------------------
+6.Feature: Manage Products
+
+  Scenario: List all products
+    When I visit the "/products" endpoint
+    Then I should see a list of products
+
+  Scenario: Find products by name
+    Given the following products
+      | name    | category | price | available |
+      | Widget  | Tools    | 25.99 | True      |
+    When I search for products by name "Widget"
+    Then I should see 1 product named "Widget"
+------------------------------------
+7.from behave import when, then
+
+@when('I visit the "{endpoint}" endpoint')
+def step_impl(context, endpoint):
+    context.response = context.client.get(endpoint)
+
+@then('I should see a list of products')
+def step_impl(context):
+    assert context.response.status_code == 200
+    assert len(context.response.json()) > 0
